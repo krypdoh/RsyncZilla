@@ -6,12 +6,8 @@ A modern SFTP client for Windows with an intuitive dual-pane GUI (FileZilla-styl
 Engineered to eliminate the classic issue of silent FTP transfer failures, ensuring atomic, resumable synchronizations that only upload new and modified byte deltas.
 
 > 📖 **[👉 Read the detailed comparison: Why RsyncZilla is Better Than FileZilla](WHY_RSYNCZILLA.md)**
-
----
-
-<p align="center">
-  <img src="assets/rsynczilla.png" alt="RsyncZilla User Interface" width="850" />
-</p>
+> 
+> 📋 **[View the changelog](changelog.txt)**
 
 ---
 
@@ -44,8 +40,9 @@ Engineered to eliminate the classic issue of silent FTP transfer failures, ensur
    - If the connection drops or permissions fail, a clear error dialog alerts you immediately and preserves changes for automatic retry.
 
 5. **Site Manager & Zero-Leak Credential Security:**
-   - **Site Manager (📂 Sites):** Save frequently used servers (Host, User, Port) to connect in a single click.
-   - **Strict Security:** **NEVER saves passwords to disk** (unlike FileZilla's plaintext XML).
+   - **Site Manager (📂 Sites):** Save frequently used servers (Host, User, Port, optional SSH private-key path) to connect in a single click.
+   - **Strict Security:** **NEVER saves passwords or key passphrases to disk** (unlike FileZilla's plaintext XML).
+   - Supports unencrypted and passphrase-protected SSH keys for SFTP browsing, rsync transfers, and terminal sessions.
    - Automatically navigates to the remote user's **home directory** upon login.
    - Built-in `RsyncAskPass.exe` and `SSH_ASKPASS` helper pipes credentials to OpenSSH subprocesses in-memory without intrusive popups.
 
@@ -124,6 +121,13 @@ Run `build.bat` or compile with the .NET 8 SDK:
 ```bash
 dotnet publish src/RsyncZilla/RsyncZilla.csproj -c Release -r win-x64 --self-contained false -o dist/RsyncZilla
 ```
+
+For a standalone single-file executable with the portable SDK, use an output folder without spaces:
+```powershell
+& "C:\Users\pc7121\dotnet-portable\dotnet.exe" publish "src\RsyncZilla\RsyncZilla.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o "C:\RsyncZillaPublish"
+```
+
+The executable is created at `C:\RsyncZillaPublish\RsyncZilla.exe`.
 
 ### Option 4: Run the Test Suite
 ```bash
