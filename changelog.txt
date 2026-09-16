@@ -1,7 +1,7 @@
 RsyncZilla Changelog
 ====================
 
-Unreleased
+Unreleased 2026-09-16
 ----------
 Added
 - Optional SSH private-key selection for saved Site Manager connections.
