@@ -1,0 +1,112 @@
+name: Build & Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v1.0.1)'
+        required: true
+        default: 'v1.0.1'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release RsyncZilla (win-x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore RsyncZilla.slnx
+
+      - name: Run Unit Tests
+        run: dotnet test --no-restore --verbosity normal
+
+      - name: Publish Release (win-x64)
+        run: dotnet publish src/RsyncZilla/RsyncZilla.csproj -c Release -r win-x64 --self-contained false -o dist/RsyncZilla
+
+      - name: Copy Version Manifest to Distribution
+        run: |
+          Copy-Item dist/version.json -Destination dist/RsyncZilla/version.json -Force
+          Copy-Item dist/RELEASE_NOTES.md -Destination dist/RsyncZilla/RELEASE_NOTES.md -Force
+
+      - name: Package Distribution ZIP
+        id: package
+        run: |
+          $tag = if ('${{ github.ref_name }}'.StartsWith('v')) { '${{ github.ref_name }}' } else { '${{ inputs.tag_name }}' }
+          if (-not $tag) { $tag = 'v1.0.1' }
+          $zipName = "RsyncZilla-$tag-win-x64.zip"
+          Compress-Archive -Path dist/RsyncZilla/* -DestinationPath $zipName -Force
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "zip_path=$zipName" >> $env:GITHUB_OUTPUT
+
+      - name: Build Inno Setup Installer
+        id: installer
+        run: |
+          $tag = "${{ steps.package.outputs.tag }}"
+          $cleanVer = $tag.TrimStart('v', 'V')
+          
+          $isccCmd = "iscc"
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            $defaultIscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+            if (Test-Path $defaultIscc) {
+              $isccCmd = $defaultIscc
+            } else {
+              choco install innosetup --no-progress
+              if (Test-Path $defaultIscc) {
+                $isccCmd = $defaultIscc
+              }
+            }
+          }
+          
+          & $isccCmd /DMyAppVersion=$cleanVer installer/RsyncZilla.iss
+          $installerPath = "dist/installer/RsyncZilla-Setup-$tag-win-x64.exe"
+          if (-not (Test-Path $installerPath)) {
+            $found = Get-ChildItem -Path dist/installer/*.exe | Select-Object -First 1
+            if ($found) { $installerPath = $found.FullName }
+          }
+          echo "installer_path=$installerPath" >> $env:GITHUB_OUTPUT
+
+      - name: Extract Release Notes
+        run: |
+          $tag = "${{ steps.package.outputs.tag }}"
+          $cleanVer = $tag.TrimStart('v', 'V')
+          $content = Get-Content dist/RELEASE_NOTES.md -Raw
+          if ($content -match "(?s)(## Version $cleanVer\b.*?)(?=\r?\n## Version |\Z)") {
+            $versionNotes = $matches[1].Trim()
+            Set-Content -Path "current_release_notes.md" -Value $versionNotes
+          } else {
+            Copy-Item dist/RELEASE_NOTES.md current_release_notes.md
+          }
+
+      - name: Create or Update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ steps.package.outputs.tag }}"
+          $zip = "${{ steps.package.outputs.zip_path }}"
+          $installer = "${{ steps.installer.outputs.installer_path }}"
+          $title = "RsyncZilla $tag"
+          
+          # Check if release already exists
+          $existing = gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            echo "Updating existing release $tag..."
+            gh release upload $tag $zip $installer --clobber
+            gh release edit $tag --title $title --notes-file current_release_notes.md
+          } else {
+            echo "Creating new release $tag..."
+            gh release create $tag $zip $installer --title $title --notes-file current_release_notes.md
+          }

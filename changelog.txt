@@ -1,0 +1,21 @@
+RsyncZilla Changelog
+====================
+
+Unreleased
+----------
+Added
+- Optional SSH private-key selection for saved Site Manager connections.
+- Support for unencrypted and passphrase-protected OpenSSH private keys.
+- SSH key authentication for SFTP browsing, rsync transfers, and terminal sessions.
+- Site Manager editing and SSH key visibility in the saved-sites list.
+
+Security
+- SSH key paths are stored as connection metadata only.
+- Passwords and SSH key passphrases are never written to disk.
+
+Changed
+- RsyncAskPass now supplies SSH key passphrases to OpenSSH child processes when required.
+
+1.2.2
+-----
+- Current application version before the SSH key authentication additions.
